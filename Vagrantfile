@@ -35,8 +35,8 @@ Vagrant.configure("2") do |config|
         #########################################################################
         echo "root:vagrant" | sudo chpasswd
         #########################################################################
-        sed -i "s@archive.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list && \
-        sed -i "s@security.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list;
+        sed -i "s@archive.ubuntu.com@mirrors.ustc.edu.cn/@g" /etc/apt/sources.list && \
+        sed -i "s@security.ubuntu.com@mirrors.ustc.edu.cn/@g" /etc/apt/sources.list;
         while [ true ]; do
           DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt -y upgrade && \
           DEBIAN_FRONTEND=noninteractive apt install -y curl ipvsadm ipset keepalived net-tools && break
@@ -170,8 +170,8 @@ systemctl status -l keepalived.service
         #########################################################################
         echo "root:vagrant" | sudo chpasswd
         #########################################################################
-        sed -i "s@archive.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list && \
-        sed -i "s@security.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list;
+        sed -i "s@archive.ubuntu.com@mirrors.ustc.edu.cn/@g" /etc/apt/sources.list && \
+        sed -i "s@security.ubuntu.com@mirrors.ustc.edu.cn/@g" /etc/apt/sources.list;
         while [ true ]; do
           DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt -y upgrade && \
           DEBIAN_FRONTEND=noninteractive apt install -y curl nginx net-tools && break
@@ -184,8 +184,8 @@ systemctl status -l keepalived.service
         #install_realserver_vip
         ifconfig lo:0 192.168.55.100 broadcast 192.168.55.100 netmask 255.255.255.255 up
         ifconfig lo:0
-        route add -host 192.168.55.100 dev lo:0
-        netstat -rn
+        #route add -host 192.168.55.100 dev lo:0
+        #netstat -rn
 
 
         echo "1" >/proc/sys/net/ipv4/conf/lo/arp_ignore
@@ -210,8 +210,8 @@ systemctl status -l keepalived.service
         #########################################################################
         echo "root:vagrant" | sudo chpasswd
         #########################################################################
-        sed -i "s@archive.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list && \
-        sed -i "s@security.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list;
+        sed -i "s@archive.ubuntu.com@mirrors.ustc.edu.cn/@g" /etc/apt/sources.list && \
+        sed -i "s@security.ubuntu.com@mirrors.ustc.edu.cn/@g" /etc/apt/sources.list;
         while [ true ]; do
           DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt -y upgrade && \
           DEBIAN_FRONTEND=noninteractive apt install -y curl net-tools && break
