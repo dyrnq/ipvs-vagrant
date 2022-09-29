@@ -22,7 +22,7 @@ Vagrant.configure("2") do |config|
     config.vm.define vm_name = "lb%d" % i do |lb|
       lb.vm.hostname = vm_name
       lb.vm.box = "ubuntu/focal64"
-      lb.vm.network :private_network, ip: "192.168.66.#{i+11}"
+      #lb.vm.network :private_network, ip: "192.168.55.#{i+11}"
       lb.vm.network :private_network, ip: "192.168.55.#{i+11}"
       lb.vm.network "forwarded_port", guest: 80, host: "#{64001+i}"
       lb.vm.provider "virtualbox" do |vb|
@@ -35,11 +35,12 @@ Vagrant.configure("2") do |config|
         #########################################################################
         echo "root:vagrant" | sudo chpasswd
         #########################################################################
-        sed -i "s@http://.*archive.ubuntu.com@http://repo.huaweicloud.com@g" /etc/apt/sources.list && \
-        sed -i "s@http://.*security.ubuntu.com@http://repo.huaweicloud.com@g" /etc/apt/sources.list;
-        apt update;
-        DEBIAN_FRONTEND=noninteractive apt -y upgrade;
-        DEBIAN_FRONTEND=noninteractive apt install -y curl ipvsadm ipset keepalived net-tools;
+        sed -i "s@archive.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list && \
+        sed -i "s@security.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list;
+        while [ true ]; do
+          DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt -y upgrade && \
+          DEBIAN_FRONTEND=noninteractive apt install -y curl ipvsadm ipset keepalived net-tools && break
+        done
         #########################################################################
         cat > /etc/modules-load.d/000-net.conf<<EOF
 br_netfilter
@@ -58,7 +59,7 @@ fs.inotify.max_user_instances = 8192
 fs.inotify.max_user_watches = 89100
 net.core.somaxconn = 65535
 net.core.netdev_max_backlog = 4096
-net.ipv4.ip_forward = 1
+net.ipv4.ip_forward = 0
 #net.ipv4.vs.conntrack = 1
 net.ipv4.tcp_keepalive_time = 600
 net.ipv4.tcp_keepalive_intvl = 30
@@ -70,12 +71,12 @@ EOF
         cat > /etc/keepalived/keepalived.conf <<__EOF 
 global_defs {
 }
-vrrp_sync_group VG1 {
-  group {
-    VI_1
-    VI_GATEWAY
-  }
-}
+# vrrp_sync_group VG1 {
+#   group {
+#     VI_1
+#     VI_GATEWAY
+#   }
+# }
 
 vrrp_instance VI_1 {
     state BACKUP
@@ -94,29 +95,29 @@ vrrp_instance VI_1 {
     }
 }
 
-vrrp_instance VI_GATEWAY {
-    state BACKUP
-    interface enp0s8
-    garp_master_delay 10
-    smtp_alert
-    virtual_router_id 52
-    priority 100
-    advert_int 1
-    authentication {
-        auth_type PASS
-        auth_pass 1111
-    }
-    virtual_ipaddress {
-        192.168.66.100
-    }
-}
+# vrrp_instance VI_GATEWAY {
+#     state BACKUP
+#     interface enp0s8
+#     garp_master_delay 10
+#     smtp_alert
+#     virtual_router_id 52
+#     priority 100
+#     advert_int 1
+#     authentication {
+#         auth_type PASS
+#         auth_pass 1111
+#     }
+#     virtual_ipaddress {
+#         192.168.66.100
+#     }
+# }
 
 virtual_server 192.168.55.100 80 {
 	delay_loop 	1
 	lb_algo 	wrr
-	lb_kind		NAT
+	lb_kind		DR
 	protocol 	TCP
-	real_server 192.168.66.111 80 {
+	real_server 192.168.55.111 80 {
 		weight	100
 		inhibit_on_failure
 		HTTP_GET {
@@ -129,7 +130,7 @@ virtual_server 192.168.55.100 80 {
 			delay_before_retry 3
 		}
 	}
-	real_server 192.168.66.112 80 {
+	real_server 192.168.55.112 80 {
 		weight	100
 		inhibit_on_failure
 		HTTP_GET {
@@ -146,7 +147,8 @@ virtual_server 192.168.55.100 80 {
 }
 __EOF
 
-
+sed -i "s|^DAEMON_ARGS.*|DAEMON_ARGS=\"--log-detail --log-console\"|g" /etc/default/keepalived && systemctl daemon-reload && systemctl enable --now keepalived
+systemctl status -l keepalived.service
 
 
       SHELL
@@ -158,7 +160,7 @@ __EOF
     config.vm.define vm_name = "rs%d" % i do |rs|
       rs.vm.hostname = vm_name
       rs.vm.box = "ubuntu/focal64"
-      rs.vm.network :private_network, ip: "192.168.66.#{i+111}"
+      rs.vm.network :private_network, ip: "192.168.55.#{i+111}"
       rs.vm.network "forwarded_port", guest: 80, host: "#{64011+i}"
       rs.vm.provider "virtualbox" do |vb|
         vb.memory = "1024"
@@ -168,15 +170,29 @@ __EOF
         #########################################################################
         echo "root:vagrant" | sudo chpasswd
         #########################################################################
-        sed -i "s@http://.*archive.ubuntu.com@http://repo.huaweicloud.com@g" /etc/apt/sources.list && \
-        sed -i "s@http://.*security.ubuntu.com@http://repo.huaweicloud.com@g" /etc/apt/sources.list;
-        apt update;
-        DEBIAN_FRONTEND=noninteractive apt -y upgrade;
-        DEBIAN_FRONTEND=noninteractive apt install -y curl nginx net-tools;
+        sed -i "s@archive.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list && \
+        sed -i "s@security.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list;
+        while [ true ]; do
+          DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt -y upgrade && \
+          DEBIAN_FRONTEND=noninteractive apt install -y curl nginx net-tools && break
+        done
         #route del default gw 10.0.2.2;
-        route add default gw 192.168.66.100;
+        #route add default gw 192.168.66.100;
         #默认网关指向LVS的DIP，不是LVS提供服务的VIP
         echo "rs#{i}" > /var/www/html/index.html;
+
+        #install_realserver_vip
+        ifconfig lo:0 192.168.55.100 broadcast 192.168.55.100 netmask 255.255.255.255 up
+        ifconfig lo:0
+        route add -host 192.168.55.100 dev lo:0
+        netstat -rn
+
+
+        echo "1" >/proc/sys/net/ipv4/conf/lo/arp_ignore
+        echo "1" >/proc/sys/net/ipv4/conf/all/arp_ignore
+        echo "2" >/proc/sys/net/ipv4/conf/lo/arp_announce
+        echo "2" >/proc/sys/net/ipv4/conf/all/arp_announce
+
       SHELL
     end
   end
@@ -194,11 +210,12 @@ __EOF
         #########################################################################
         echo "root:vagrant" | sudo chpasswd
         #########################################################################
-        sed -i "s@http://.*archive.ubuntu.com@http://repo.huaweicloud.com@g" /etc/apt/sources.list && \
-        sed -i "s@http://.*security.ubuntu.com@http://repo.huaweicloud.com@g" /etc/apt/sources.list;
-        apt update;
-        DEBIAN_FRONTEND=noninteractive apt -y upgrade;
-        DEBIAN_FRONTEND=noninteractive apt install -y net-tools;
+        sed -i "s@archive.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list && \
+        sed -i "s@security.ubuntu.com@repo.huaweicloud.com@g" /etc/apt/sources.list;
+        while [ true ]; do
+          DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt -y upgrade && \
+          DEBIAN_FRONTEND=noninteractive apt install -y curl net-tools && break
+        done
       SHELL
     end
   end
