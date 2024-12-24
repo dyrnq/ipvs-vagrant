@@ -70,18 +70,19 @@ sysctl --system
         cat > /etc/keepalived/keepalived.conf <<__EOF 
 global_defs {
 }
-vrrp_sync_group VG1 {
-  group {
-    VI_1
-    VI_GATEWAY
-  }
-}
+# vrrp_sync_group VG1 {
+#   group {
+#     VI_1
+#     VI_GATEWAY
+#   }
+# }
 
 vrrp_instance VI_1 {
     state BACKUP
     interface enp0s8
     garp_master_delay 10
     smtp_alert
+    nopreempt
     virtual_router_id 51
     priority 100
     advert_int 1
@@ -94,29 +95,29 @@ vrrp_instance VI_1 {
     }
 }
 
-vrrp_instance VI_GATEWAY {
-    state BACKUP
-    interface enp0s8
-    garp_master_delay 10
-    smtp_alert
-    virtual_router_id 52
-    priority 100
-    advert_int 1
-    authentication {
-        auth_type PASS
-        auth_pass 1111
-    }
-    virtual_ipaddress {
-        192.168.66.100
-    }
-}
+# vrrp_instance VI_GATEWAY {
+#     state BACKUP
+#     interface enp0s8
+#     garp_master_delay 10
+#     smtp_alert
+#     virtual_router_id 52
+#     priority 100
+#     advert_int 1
+#     authentication {
+#         auth_type PASS
+#         auth_pass 1111
+#     }
+#     virtual_ipaddress {
+#         192.168.66.100
+#     }
+# }
 
 virtual_server 192.168.55.100 80 {
 	delay_loop 	1
 	lb_algo 	wrr
 	lb_kind		NAT
 	protocol 	TCP
-	real_server 192.168.66.111 80 {
+	real_server 192.168.55.111 80 {
 		weight	100
 		inhibit_on_failure
 		HTTP_GET {
@@ -129,7 +130,7 @@ virtual_server 192.168.55.100 80 {
 			delay_before_retry 3
 		}
 	}
-	real_server 192.168.66.112 80 {
+	real_server 192.168.55.112 80 {
 		weight	100
 		inhibit_on_failure
 		HTTP_GET {
@@ -146,7 +147,7 @@ virtual_server 192.168.55.100 80 {
 }
 __EOF
 
-sed -i "s|^DAEMON_ARGS.*|DAEMON_ARGS=\\"--log-detail --log-console\\"|g" /etc/default/keepalived && systemctl daemon-relad && systemctl enable --now keepalived
+sed -i "s|^DAEMON_ARGS.*|DAEMON_ARGS=\\"--log-detail --log-console\\"|g" /etc/default/keepalived && systemctl daemon-reload && systemctl enable --now keepalived
 
 
       SHELL
@@ -157,7 +158,7 @@ sed -i "s|^DAEMON_ARGS.*|DAEMON_ARGS=\\"--log-detail --log-console\\"|g" /etc/de
   (0..1).each do |i|
     config.vm.define vm_name = "rs%d" % i do |rs|
       rs.vm.hostname = vm_name
-      rs.vm.network :private_network, ip: "192.168.66.#{i+111}"
+      rs.vm.network :private_network, ip: "192.168.55.#{i+111}"
       rs.vm.network "forwarded_port", guest: 80, host: "#{64011+i}"
       rs.vm.provider "virtualbox" do |vb|
         vb.memory = "512"
@@ -173,7 +174,7 @@ sed -i "s|^DAEMON_ARGS.*|DAEMON_ARGS=\\"--log-detail --log-console\\"|g" /etc/de
         DEBIAN_FRONTEND=noninteractive apt install -y curl nginx net-tools && break
         done
         #route del default gw 10.0.2.2;
-        route add default gw 192.168.66.100;
+        # route add default gw 192.168.66.100;
         #默认网关指向LVS的DIP，不是LVS提供服务的VIP
         echo "rs#{i}" > /var/www/html/index.html;
       SHELL
